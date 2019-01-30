@@ -1,0 +1,17 @@
+{
+  "name": "node_rest_api_2019_01",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon src/app.js"
+  },
+  "keywords": [],
+  "author": "@gotoflorian",
+  "license": "ISC",
+  "description": "for experimentation",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4"
+  }
+}
