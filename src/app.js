@@ -9,6 +9,7 @@ const { multer, fileStorage, fileFilter } = require("./middlewares/multerHelper"
 
 
 const feedRoutes = require('./routers/feeds');
+const authRoutes = require('./routers/auth');
 
 const PORT = 8000;
 const app = express();
@@ -31,14 +32,15 @@ app.use(
 );
 
 app.use('/feed', feedRoutes);
+app.use('/auth', authRoutes);
 
 // error handling middleware
 app.use(
     (error, req, res, next) => {
-        const { message, statusCode = 500, validationErrors = [] } = error;
+        const { message, statusCode = 500, data } = error;
 
         console.log(error)
-        return res.status(statusCode).json({ message, errors: validationErrors });
+        return res.status(statusCode).json({ message, data });
     }
 );
 

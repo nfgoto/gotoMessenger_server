@@ -1,9 +1,24 @@
+const fs = require('fs');
+const path = require('path');
 const { validationResult } = require('express-validator/check');
 
 const Post = require('../models/post');
+const User = require('../models/user');
 
-exports.getPosts = (_req, res, _next) => {
-    Post.find()
+exports.getPosts = (req, res, _next) => {
+    const currentPage = req.query.page || 1;
+    const perPage = 2;
+    let totalItems;
+
+    Post.find().countDocuments()
+        .then(
+            count => {
+                totalItems = count;
+                return Post.find()
+                    .skip((currentPage - 1) * perPage)
+                    .limit(perPage);
+            }
+        )
         .then(
             posts => {
                 if (!posts) {
@@ -16,52 +31,87 @@ exports.getPosts = (_req, res, _next) => {
                 return res
                     .status(200)
                     .json({
-                        posts
+                        posts,
+                        totalItems
                     });
             }
         )
-        .catch(err => errorHandler(err, next))
+        .catch(err => errorHandler(err, next));
 };
 
 exports.postPost = (req, res, next) => {
     const validationErrors = validationResult(req);
-    
+
     if (!validationErrors.isEmpty()) {
         const error = new Error('Validation failed.');
         error.statusCode = 422;
-        error.validationErrors = validationErrors.array();
+        error.data = validationErrors.array();
         // can throw because sync code, will reach the next catch statement
         throw error;
     }
-    
+
     if (!req.file) {
         const error = new Error('No image provided.');
         error.statusCode = 422;
         throw error;
     }
-    
+
     const title = req.body.title;
     const content = req.body.content;
     const imageUrl = req.file.path;
+    let creator;
 
     const post = new Post({
         title,
         content,
         imageUrl,
-        creator: {
-            name: 'Florian'
-        }
+        creator: req.userId
     });
 
     post.save()
-        .then(result => {
-            return res
-                .status(201)
-                .json({
-                    message: 'Post created succesfully',
-                    post: result
-                });
-        })
+        .then
+        (
+            () => {
+                // find connected user
+                return User.findById(req.userId);
+            }
+        )
+        .then(
+            user => {
+                if (!user) {
+                    const error = new Error('No User Found.');
+                    error.statusCode = 404;
+                    throw error;
+                }
+
+                creator = user;
+
+                // add new post to connected user post list
+                user.posts.push(post);
+                return user.save();
+            }
+        )
+        .then(
+            user => {
+                if (!user) {
+                    const error = new Error('No User Found.');
+                    error.statusCode = 404;
+                    throw error;
+                }
+
+                return res
+                    .status(201)
+                    .json({
+                        message: 'Post created succesfully',
+                        post,
+                        creator: {
+                            _id: user._id,
+                            name: user.name
+                        }
+                    });
+            }
+
+        )
         .catch(err => errorHandler(err, next));
 };
 
@@ -83,10 +133,139 @@ exports.getPost = (req, res, next) => {
         .catch(err => errorHandler(err, next));
 };
 
+exports.putPost = (req, res, next) => {
+    const validationErrors = validationResult(req);
+
+    if (!validationErrors.isEmpty()) {
+        const error = new Error('Validation failed.');
+        error.statusCode = 422;
+        error.data = validationErrors.array();
+        throw error;
+    }
+
+    const {
+        title,
+        content,
+        // default case when no new image - handled on the front-end to send existing image on the body
+        image
+    } = req.body;
+
+    const imageUrl = req.file
+        ? req.file.path
+        : image
+            // no happy path please
+            ? image
+            : (() => {
+                const error = new Error('No File was picked.');
+                error.statusCode(422);
+                throw error;
+            })();
+
+    Post.findById(req.params.postId)
+        .then(
+            post => {
+                if (!post) {
+                    const error = new Error('Cannot find post to edit');
+                    error.statusCode = 404;
+                    throw error;
+                }
+
+                if (post.creator.toString() !== req.userId) {
+                    const error = new Error('Unauthorized.');
+                    error.statusCode = 403;
+                    throw error;
+                }
+
+                if (post.imageUrl !== imageUrl) {
+                    deleteImageFromStorage(post.imageUrl)
+                }
+
+                post.title = title;
+                post.content = content;
+                post.imageUrl = imageUrl;
+                post.save().then(
+                    result => {
+                        res.status(200).json({
+                            message: 'post successfully updated',
+                            post: result
+                        });
+                    }
+                );
+            }
+        )
+        .catch(err => errorHandler(err, next));
+}
+
+exports.deletePost = (req, res, next) => {
+    const { params: { postId } } = req;
+    let deletePost;
+
+    Post.findById(postId)
+        .then(
+            post => {
+                if (!post) {
+                    const error = new Error('Post to delete not found');
+                    error.statusCode = 404;
+                    throw error;
+                }
+
+                // check if logged in user created the post
+                if (post.creator.toString() !== req.userId) {
+                    const error = new Error('Not Authorized');
+                    error.statusCode = 403;
+                    throw error;
+                }
+
+                deleteImageFromStorage(post.imageUrl);
+                return Post.findByIdAndDelete(postId);
+            }
+        )
+        .then(
+            postToDelete => {
+                deletePost = postToDelete;
+                return User.findById(req.userId);
+            }
+        )
+        .then(
+            loadedUser => {
+                if (!loadedUser) {
+                    const error = new Error('User Not Found.');
+                    error.statusCode = 404;
+                    throw error;
+                }
+
+                // delete the relation in database between connected user and deleted post
+                // loadedUser.posts = loadedUser.posts.filter(
+                //     post => {
+                //         return post._id.toString() !== deletePost._id.toString();
+                //     }
+                // );
+
+                // Mongoose gives a pull(id) to remove objects
+                loadedUser.posts.pull(postId);
+
+                return loadedUser.save();
+            }
+        )
+        .then(
+            () => {
+                return res.status(200).json({
+                    message: 'Post deleted'
+                });
+            }
+        )
+        .catch(err => errorHandler(err, next));
+}
 
 
-
-
+function deleteImageFromStorage(filetpath) {
+    fs.unlink(
+        path.join(__dirname, '..', '..', filetpath),
+        err => {
+            if (err) console.log(err);
+        }
+    )
+}
 function errorHandler(err, next) {
     // if unexpected error
     if (!err.statusCode) {
