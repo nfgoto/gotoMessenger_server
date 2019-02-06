@@ -46,11 +46,23 @@ app.use(
 
 mongoose.connect(process.env.MONGO_URI).then(
     () => {
-        app.listen(
+        const server = app.listen(
             PORT,
             () => {
                 console.log(`Express server up and running on port ${PORT}`);
             }
         );
+
+        // built the socket on the HTTP server
+        const io = require('./socket').init(server);
+
+        io.on(
+            'connection',
+            // socket arg is the connetion between our server and the client
+            (socket) => {
+                console.log('Client connected via Web Socket !');
+            }
+        )
+
     }
 ).catch(err => { console.log(err) })

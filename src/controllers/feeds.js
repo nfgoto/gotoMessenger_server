@@ -2,41 +2,38 @@ const fs = require('fs');
 const path = require('path');
 const { validationResult } = require('express-validator/check');
 
+const io = require('../socket');
 const Post = require('../models/post');
 const User = require('../models/user');
 
-exports.getPosts = (req, res, _next) => {
+exports.getPosts = async (req, res, _next) => {
     const currentPage = req.query.page || 1;
     const perPage = 2;
-    let totalItems;
 
-    Post.find().countDocuments()
-        .then(
-            count => {
-                totalItems = count;
-                return Post.find()
-                    .skip((currentPage - 1) * perPage)
-                    .limit(perPage);
-            }
-        )
-        .then(
-            posts => {
-                if (!posts) {
-                    const error = new Error('No posts found.');
-                    error.statusCode = 404;
-                    // we can throw because will reach the catch block and get to the error handling middleware
-                    throw error;
-                }
+    try {
 
-                return res
-                    .status(200)
-                    .json({
-                        posts,
-                        totalItems
-                    });
-            }
-        )
-        .catch(err => errorHandler(err, next));
+        const totalItems = await Post.find().countDocuments();
+        const posts = await Post.find()
+            .populate('creator')
+            .sort({ createdAt: -1 }) //  sort from most recent
+            .skip((currentPage - 1) * perPage)
+            .limit(perPage);
+        if (!posts) {
+            const error = new Error('No posts found.');
+            error.statusCode = 404;
+            // we can throw because will reach the catch block and get to the error handling middleware
+            throw error;
+        }
+
+        return res
+            .status(200)
+            .json({
+                posts,
+                totalItems
+            });
+    } catch (error) {
+        errorHandler(error, next);
+    }
 };
 
 exports.postPost = (req, res, next) => {
@@ -99,11 +96,27 @@ exports.postPost = (req, res, next) => {
                     throw error;
                 }
 
+                // inform all subscribed/connected clients
+                io.getIO().emit(
+                    // name of the channel
+                    'posts',
+                    {
+                        action: 'create',
+                        post
+                    }
+                );
+
                 return res
                     .status(201)
                     .json({
                         message: 'Post created succesfully',
-                        post,
+                        post: {
+                            ...post._doc,
+                            creator: {
+                                _id: req.userId,
+                                name: user.name
+                            }
+                        },
                         creator: {
                             _id: user._id,
                             name: user.name
@@ -162,6 +175,7 @@ exports.putPost = (req, res, next) => {
             })();
 
     Post.findById(req.params.postId)
+        .populate('creator')
         .then(
             post => {
                 if (!post) {
@@ -170,7 +184,7 @@ exports.putPost = (req, res, next) => {
                     throw error;
                 }
 
-                if (post.creator.toString() !== req.userId) {
+                if (post.creator._id.toString() !== req.userId) {
                     const error = new Error('Unauthorized.');
                     error.statusCode = 403;
                     throw error;
@@ -185,7 +199,15 @@ exports.putPost = (req, res, next) => {
                 post.imageUrl = imageUrl;
                 post.save().then(
                     result => {
-                        res.status(200).json({
+                        io.getIO().emit(
+                            'posts',
+                            {
+                                action: 'update',
+                                post: result
+                            }
+                        );
+
+                        return res.status(200).json({
                             message: 'post successfully updated',
                             post: result
                         });
@@ -249,6 +271,10 @@ exports.deletePost = (req, res, next) => {
         )
         .then(
             () => {
+                io.getIO().emit('posts', {
+                    action: 'delete',
+                    post: postId
+                })
                 return res.status(200).json({
                     message: 'Post deleted'
                 });
