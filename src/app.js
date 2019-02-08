@@ -1,15 +1,15 @@
-require('dotenv').config()
+require('dotenv').config();
 
 const path = require('path');
 
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
-const { multer, fileStorage, fileFilter } = require("./middlewares/multerHelper");
+const graphqlHttp = require('express-graphql');
 
-
-const feedRoutes = require('./routers/feeds');
-const authRoutes = require('./routers/auth');
+const { multer, fileStorage, fileFilter } = require('./middlewares/multerHelper');
+const graphqlSchema = require('./graphql/schema');
+const graphqlResolver = require('./graphql/resolvers');
 
 const PORT = 8000;
 const app = express();
@@ -31,38 +31,56 @@ app.use(
     }
 );
 
-app.use('/feed', feedRoutes);
-app.use('/auth', authRoutes);
+// configure the graphql endpoint
+app.use(
+    '/graphql',
+    graphqlHttp({
+        schema: graphqlSchema,
+        rootValue: graphqlResolver,
+
+        // tool to access a web UI for graphql, need a query command to be able access it
+        graphiql: true,
+        
+        // error handling in GraphQL
+        formatError(err) {
+            // originalError = error in dev code (set by GraphQL)
+            if (!err.originalError) {
+                return err;
+            }
+            const {
+                data,
+                message = 'An Error Has Occured',
+                code = 500
+            } = err.originalError;
+
+            return { message, data, status: code };
+        }
+    })
+);
 
 // error handling middleware
 app.use(
     (error, req, res, next) => {
         const { message, statusCode = 500, data } = error;
 
-        console.log(error)
         return res.status(statusCode).json({ message, data });
     }
 );
 
 mongoose.connect(process.env.MONGO_URI).then(
     () => {
-        const server = app.listen(
+        app.listen(
             PORT,
             () => {
+                /* eslint-disable */
                 console.log(`Express server up and running on port ${PORT}`);
+                /* eslint-enable */
             }
         );
 
-        // built the socket on the HTTP server
-        const io = require('./socket').init(server);
-
-        io.on(
-            'connection',
-            // socket arg is the connetion between our server and the client
-            (socket) => {
-                console.log('Client connected via Web Socket !');
-            }
-        )
-
     }
-).catch(err => { console.log(err) })
+).catch(err => {
+    /* eslint-disable */
+    console.log(err.message);
+    /* eslint-enable */
+});

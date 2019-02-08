@@ -1,5 +1,3 @@
-const crypto = require('crypto');
-
 const jwt = require('jsonwebtoken');
 
 const secret = require('../utils/secret');
@@ -13,7 +11,7 @@ module.exports = (req, res, next) => {
         throw error;
     }
 
-    const [_, token] = authHeader.split(' ');
+    const token = authHeader.split(' ')[1];
 
     let decodedToken;
     try {
@@ -37,4 +35,4 @@ module.exports = (req, res, next) => {
     // store userId in request
     req.userId = decodedToken.userId;
     next();
-}
+};

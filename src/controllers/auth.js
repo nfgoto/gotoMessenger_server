@@ -1,6 +1,4 @@
-const crypto = require('crypto');
-
-const { validationResult } = require('express-validator/check')
+const { validationResult } = require('express-validator/check');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -49,11 +47,11 @@ exports.putSignup = (req, res, next) => {
                 return res.status(201).json({
                     message: 'User Signup Successful',
                     user
-                })
+                });
             }
         )
         .catch(err => errorHandler(err, next));
-}
+};
 
 exports.postLogin = (req, res, next) => {
     const { email, password } = req.body;
@@ -101,7 +99,7 @@ exports.postLogin = (req, res, next) => {
             }
         )
         .catch(err => errorHandler(err, next));
-}
+};
 
 
 // =========================================================

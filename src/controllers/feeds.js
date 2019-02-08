@@ -6,7 +6,7 @@ const io = require('../socket');
 const Post = require('../models/post');
 const User = require('../models/user');
 
-exports.getPosts = async (req, res, _next) => {
+exports.getPosts = async (req, res, next) => {
     const currentPage = req.query.page || 1;
     const perPage = 2;
 
@@ -56,7 +56,6 @@ exports.postPost = (req, res, next) => {
     const title = req.body.title;
     const content = req.body.content;
     const imageUrl = req.file.path;
-    let creator;
 
     const post = new Post({
         title,
@@ -66,8 +65,7 @@ exports.postPost = (req, res, next) => {
     });
 
     post.save()
-        .then
-        (
+        .then(
             () => {
                 // find connected user
                 return User.findById(req.userId);
@@ -80,8 +78,6 @@ exports.postPost = (req, res, next) => {
                     error.statusCode = 404;
                     throw error;
                 }
-
-                creator = user;
 
                 // add new post to connected user post list
                 user.posts.push(post);
@@ -139,7 +135,6 @@ exports.getPost = (req, res, next) => {
                     error.statusCode = 404;
                     throw error;
                 }
-                ``
                 return res.json({ message: 'post fetched', post });
             }
         )
@@ -191,7 +186,7 @@ exports.putPost = (req, res, next) => {
                 }
 
                 if (post.imageUrl !== imageUrl) {
-                    deleteImageFromStorage(post.imageUrl)
+                    deleteImageFromStorage(post.imageUrl, next);
                 }
 
                 post.title = title;
@@ -216,11 +211,10 @@ exports.putPost = (req, res, next) => {
             }
         )
         .catch(err => errorHandler(err, next));
-}
+};
 
 exports.deletePost = (req, res, next) => {
     const { params: { postId } } = req;
-    let deletePost;
 
     Post.findById(postId)
         .then(
@@ -238,13 +232,12 @@ exports.deletePost = (req, res, next) => {
                     throw error;
                 }
 
-                deleteImageFromStorage(post.imageUrl);
+                deleteImageFromStorage(post.imageUrl, next);
                 return Post.findByIdAndDelete(postId);
             }
         )
         .then(
-            postToDelete => {
-                deletePost = postToDelete;
+            () => {
                 return User.findById(req.userId);
             }
         )
@@ -255,13 +248,6 @@ exports.deletePost = (req, res, next) => {
                     error.statusCode = 404;
                     throw error;
                 }
-
-                // delete the relation in database between connected user and deleted post
-                // loadedUser.posts = loadedUser.posts.filter(
-                //     post => {
-                //         return post._id.toString() !== deletePost._id.toString();
-                //     }
-                // );
 
                 // Mongoose gives a pull(id) to remove objects
                 loadedUser.posts.pull(postId);
@@ -274,23 +260,23 @@ exports.deletePost = (req, res, next) => {
                 io.getIO().emit('posts', {
                     action: 'delete',
                     post: postId
-                })
+                });
                 return res.status(200).json({
                     message: 'Post deleted'
                 });
             }
         )
         .catch(err => errorHandler(err, next));
-}
+};
 
 
-function deleteImageFromStorage(filetpath) {
+function deleteImageFromStorage(filetpath, next) {
     fs.unlink(
         path.join(__dirname, '..', '..', filetpath),
         err => {
-            if (err) console.log(err);
+            if (err) next(err);
         }
-    )
+    );
 }
 function errorHandler(err, next) {
     // if unexpected error

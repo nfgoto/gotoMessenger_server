@@ -20,9 +20,9 @@ const postSchema = new Schema({
         required: true
     }
 }, {
-        // adds createdAt and updatedAt fields
-        timestamps: true
-    }
+    // adds createdAt and updatedAt fields
+    timestamps: true
+}
 );
 
 module.exports = mongoose.model('Post', postSchema);

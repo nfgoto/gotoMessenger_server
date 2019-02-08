@@ -1,5 +1,4 @@
-const express = require('express');
-const multer = require("multer");
+const multer = require('multer');
 
 
 // storage engine
@@ -29,22 +28,19 @@ const fileFilter = (
     cb
 ) => {
     switch (file.mimetype) {
-        case 'image/png':
-        case 'image/jpg':
-        case 'image/jpg': {
-            console.log('====== ACCEPTED FILE =============')
-            // allow that kind of file to be uploaded to server
-            cb(null, true);
-            break;
-        }
+    case 'image/png':
+    case 'image/jpg':
+    case 'image/jpeg': {
+        // allow that kind of file to be uploaded to server
+        cb(null, true);
+        break;
+    }
 
-        default: {
-            console.log('====== REJECTED FILE =============')
-
-            // deny upload
-            cb(null, false);
-            break;
-        }
+    default: {
+        // deny upload
+        cb(null, false);
+        break;
+    }
     }
 };
 
