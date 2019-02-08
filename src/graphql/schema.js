@@ -31,9 +31,15 @@ input UserInputData {
 }
 `;
 
+const IAuthData = `
+type AuthData {
+    token: String!
+    userId: String!
+}`;
+
 const IRootQuery = `
 type RootQuery {
-    hello: String
+    login(email: String!, password: String!): AuthData!
 }`;
 
 const IRootMutation = `
@@ -45,8 +51,9 @@ module.exports = buildSchema(`
     ${IPost}
     ${IUser}
     ${IUserInputData}
+    ${IAuthData}
     ${IRootQuery}    
-    ${IRootMutation}        
+    ${IRootMutation}
 
     schema {
         query: RootQuery

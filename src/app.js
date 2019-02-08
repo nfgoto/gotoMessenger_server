@@ -27,6 +27,12 @@ app.use(
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
         res.setHeader('Access-Control-Allow-Headers', '*');
+        // because GraphQL rejects requests that qre not GET or POST
+        if (req.method === 'OPTIONS') {
+            // send an empty success status to be able to receive the query
+            // the OPTIONS req will stop here
+            return res.sendStatus(200);
+        }
         next();
     }
 );
@@ -40,7 +46,7 @@ app.use(
 
         // tool to access a web UI for graphql, need a query command to be able access it
         graphiql: true,
-        
+
         // error handling in GraphQL
         formatError(err) {
             // originalError = error in dev code (set by GraphQL)
@@ -58,9 +64,14 @@ app.use(
     })
 );
 
-// error handling middleware
+// custom error handling middleware
 app.use(
     (error, req, res, next) => {
+        //  handling streaming errors
+        // https://expressjs.com/en/guide/error-handling.html#the-default-error-handler
+        if (res.headersSent) {
+            return next(error);
+        }
         const { message, statusCode = 500, data } = error;
 
         return res.status(statusCode).json({ message, data });
