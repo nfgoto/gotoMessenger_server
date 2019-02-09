@@ -10,6 +10,7 @@ const graphqlHttp = require('express-graphql');
 const { multer, fileStorage, fileFilter } = require('./middlewares/multerHelper');
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
+const auth = require('./middlewares/auth');
 
 const PORT = 8000;
 const app = express();
@@ -37,6 +38,9 @@ app.use(
     }
 );
 
+// auth middleware
+app.use(auth);
+
 // configure the graphql endpoint
 app.use(
     '/graphql',
@@ -55,7 +59,7 @@ app.use(
             }
             const {
                 data,
-                message = 'An Error Has Occured',
+                message = 'An Error Has Occurred',
                 code = 500
             } = err.originalError;
 

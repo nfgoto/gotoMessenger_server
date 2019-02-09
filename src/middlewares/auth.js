@@ -6,9 +6,8 @@ module.exports = (req, res, next) => {
     const authHeader = req.get('Authorization');
 
     if (!authHeader) {
-        const error = new Error('Not Authenticated');
-        error.statusCode = 401;
-        throw error;
+        req.isAuth = false;
+        return next();
     }
 
     const token = authHeader.split(' ')[1];
@@ -21,18 +20,18 @@ module.exports = (req, res, next) => {
             secret
         );
     } catch (error) {
-        error.statusCode = 500;
-        throw error;
+        req.isAuth = false;
+        return next();
     }
 
     // case: decoded but not verified
     if (!decodedToken) {
-        const error = new Error('Not Authenticated');
-        error.statusCode = 401;
-        throw error;
+        req.isAuth = false;
+        return next();
     }
 
     // store userId in request
     req.userId = decodedToken.userId;
+    req.isAuth = true;
     next();
 };

@@ -3,6 +3,7 @@ const validator = require('validator');
 const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
+const Post = require('../models/post');
 
 // one method per query defined in schema
 module.exports = {
@@ -69,7 +70,7 @@ module.exports = {
         }
     },
 
-    login: async (args, req) => {
+    login: async (args/* , req */) => {
         const { email, password } = args;
 
         // validate input data
@@ -108,6 +109,7 @@ module.exports = {
         }
 
         // generate token
+
         const payload = {
             userId: user._id.toString(),
             email: user.email
@@ -117,6 +119,73 @@ module.exports = {
         return {
             token,
             userId: user._id.toString()
+        };
+    },
+
+    createPost: async ({ postInput }, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
         }
+        const { title, content, imageUrl } = postInput;
+
+        const errors = [];
+        if (validator.isEmpty(title) || !validator.isLength(title, { min: 5 })) {
+            errors.push({ message: 'Title Too Short' });
+        }
+        if (validator.isEmpty(content) || !validator.isLength(content, { min: 5 })) {
+            errors.push({ message: 'Content Too Short' });
+        }
+        if (validator.isEmpty(imageUrl)) {
+            errors.push({ message: 'Image URL is Empty' });
+        }
+        if (errors.length > 0) {
+            const error = new Error('Invalid Post Data');
+            error.data = errors;
+            throw error;
+        }
+
+        const loggedInUser = await User.findById(req.userId);
+        if (!loggedInUser) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const post = new Post({
+            title,
+            content,
+            imageUrl,
+            creator: loggedInUser
+        });
+
+        const createdPost = await post.save();
+        if (!createdPost) {
+            const error = new Error('Error With Post Creation');
+            throw error;
+        }
+
+        loggedInUser.posts.push(createdPost);
+        const updatedUser = await loggedInUser.save();
+        if (!updatedUser) {
+            const error = new Error('Error When Associating New Post To Logged User');
+            error.code = 401;
+            throw error;
+        }
+
+        return {
+            post: {
+                ...createdPost._doc,
+                _id: createdPost._id,
+                createdAt: createdPost.createdAt.toISOString(),
+                updateAt: createdPost.updatedAt.toISOString()
+            },
+            creator: {
+                _id: updatedUser._id.toString(),
+                name: updatedUser.name
+            }
+        };
     }
+
 };
