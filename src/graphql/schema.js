@@ -57,15 +57,23 @@ type AuthData {
     userId: String!
 }`;
 
+const IPostListData = `
+type PostListData {
+    posts: [Post!]!
+    totalPosts: Int!
+}`;
+
 const IRootQuery = `
 type RootQuery {
     login(email: String!, password: String!): AuthData!
+    fetchPosts(page: Int!): PostListData!
+    fetchSinglePost(postId: ID!): Post!
 }`;
 
 const IRootMutation = `
 type RootMutation {
-    createUser(userInput: UserInputData): User!
-    createPost(postInput: PostInputData): CreatedPostData!
+    createUser(userInput: UserInputData!): User!
+    createPost(postInput: PostInputData!): CreatedPostData!
 }`;
 
 module.exports = buildSchema(`
@@ -76,6 +84,7 @@ module.exports = buildSchema(`
     ${IPostInputData}
     ${ICreatedPostData}
     ${ICreator}
+    ${IPostListData}
     ${IRootQuery}    
     ${IRootMutation}
 

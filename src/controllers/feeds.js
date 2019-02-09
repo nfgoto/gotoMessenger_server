@@ -1,10 +1,10 @@
-const fs = require('fs');
-const path = require('path');
 const { validationResult } = require('express-validator/check');
 
 const io = require('../socket');
 const Post = require('../models/post');
 const User = require('../models/user');
+
+const deleteImageFromStorage = require('../utils/clearImage');
 
 exports.getPosts = async (req, res, next) => {
     const currentPage = req.query.page || 1;
@@ -270,14 +270,6 @@ exports.deletePost = (req, res, next) => {
 };
 
 
-function deleteImageFromStorage(filetpath, next) {
-    fs.unlink(
-        path.join(__dirname, '..', '..', filetpath),
-        err => {
-            if (err) next(err);
-        }
-    );
-}
 function errorHandler(err, next) {
     // if unexpected error
     if (!err.statusCode) {

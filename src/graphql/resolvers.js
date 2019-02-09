@@ -179,12 +179,77 @@ module.exports = {
                 ...createdPost._doc,
                 _id: createdPost._id,
                 createdAt: createdPost.createdAt.toISOString(),
-                updateAt: createdPost.updatedAt.toISOString()
+                updatedAt: createdPost.updatedAt.toISOString()
             },
             creator: {
                 _id: updatedUser._id.toString(),
                 name: updatedUser.name
             }
+        };
+    },
+
+    fetchPosts: async ({ page = 1 }, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const currentPage = page;
+        const perPage = 2;
+
+        const totalPosts = await Post.find({ creator: req.userId }).countDocuments();
+        const posts = await Post.find({ creator: req.userId })
+            .sort({ createdAt: -1 })
+            .skip((currentPage - 1) * perPage)
+            .limit(perPage)
+            .populate('creator');
+        if (!posts) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const formattedPosts = posts.map(post => ({
+            _id: post._id.toString(),
+            title: post.title,
+            content: post.content,
+            imageUrl: post.imageUrl,
+            creator: {
+                ...post.creator._doc,
+                _id: post.creator._id.toString(),
+                createdAt: post.creator.createdAt.toISOString(),
+                updatedAt: post.creator.updatedAt.toISOString()
+            },
+            createdAt: post.createdAt.toISOString(),
+            ipdatedAt: post.updatedAt.toISOString()
+        }));
+
+        return {
+            posts: formattedPosts,
+            totalPosts
+        };
+    },
+
+    fetchSinglePost: async (args, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const loadedPost = await Post.findById(args.postId).populate('creator');
+        if (!loadedPost) {
+            const error = new Error('Post Not Found');
+            error.code = 404;
+            throw error;
+        }
+
+        return {
+            ...loadedPost._doc,
+            _id: loadedPost._id.toString(),
+            createdAt: loadedPost.createdAt.toISOString(),
+            updatedAt: loadedPost.updatedAt.toISOString()
         };
     }
 

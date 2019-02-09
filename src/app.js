@@ -11,6 +11,7 @@ const { multer, fileStorage, fileFilter } = require('./middlewares/multerHelper'
 const graphqlSchema = require('./graphql/schema');
 const graphqlResolver = require('./graphql/resolvers');
 const auth = require('./middlewares/auth');
+const clearImage = require('./utils/clearImage');
 
 const PORT = 8000;
 const app = express();
@@ -40,6 +41,29 @@ app.use(
 
 // auth middleware
 app.use(auth);
+
+// image REST endpoint because GrapQl only supports JSON
+app.put(
+    '/post-image',
+    (req, res, next) => {
+        if (!req.isAuth) {
+            const error = new Error('Not Authentocated.');
+            error.statusCode = 401;
+            throw error;
+        }
+        
+        if (!req.file) {
+            return res.status(404).json({ message: 'No Image Provided' });
+        }
+
+        if (req.body.oldPath) {
+            clearImage(req.body.oldPath, next);
+        }
+
+        const filepath = req.file.path;
+        return res.status(201).json({message: 'Image Uploaded', filepath});
+    }
+);
 
 // configure the graphql endpoint
 app.use(
