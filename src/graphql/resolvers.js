@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
 
+const clearImage = require('../utils/clearImage');
+
 const User = require('../models/user');
 const Post = require('../models/post');
 
@@ -301,7 +303,7 @@ module.exports = {
         loadedPost.content = content;
         // imageUrl input arg "undefined" in mutation shen no image edit
         if (imageUrl !== 'undefined') {
-            loadedPost.imageUrl = imageUrl;    
+            loadedPost.imageUrl = imageUrl;
         }
 
         const updatedPost = await loadedPost.save();
@@ -317,6 +319,43 @@ module.exports = {
             updatedAt: updatedPost.updatedAt.toISOString()
         };
 
+    },
+
+    deletePost: async ({ postId }, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const loadedPost = await Post.findById(postId).populate('creator');
+        if (!loadedPost) {
+            const error = new Error('Post To Delete Not Found');
+            error.code = 404;
+            throw error;
+        }
+
+        if (loadedPost.creator._id.toString() !== req.userId) {
+            const error = new Error('Not Authorized');
+            error.code = 403;
+            throw error;
+        }
+
+        const deletedPost = await Post.findByIdAndDelete(postId);
+        if (!deletedPost) {
+            const error = new Error('Post Delete Error');
+            throw error;
+        }
+
+        clearImage(deletedPost.imageUrl);
+
+        return {
+            ...deletedPost._doc,
+            _id: deletedPost._id.toString(),
+            createdAt: deletedPost.createdAt.toISOString(),
+            updatedAt: deletedPost.updatedAt.toISOString()
+        };
     }
+
 
 };

@@ -5,8 +5,12 @@ module.exports = function deleteImageFromStorage(filetpath, next, cb) {
     fs.unlink(
         path.join(__dirname, '..', '..', filetpath),
         err => {
-            if (err) return next(err);
-            cb();
+            if (next) {
+                if (err) return next(err);
+                return cb();
+            }
+
+            if (err) throw err;
         }
     );
 };
