@@ -172,7 +172,6 @@ module.exports = {
         const updatedUser = await loggedInUser.save();
         if (!updatedUser) {
             const error = new Error('Error When Associating New Post To Logged User');
-            error.code = 401;
             throw error;
         }
 
@@ -348,6 +347,21 @@ module.exports = {
         }
 
         clearImage(deletedPost.imageUrl);
+
+        const loggedInUser = await User.findById(req.userId);
+        if (!loggedInUser) {
+            const error = new Error('Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        loggedInUser.posts.pull(deletedPost._id);
+        const updatedUser = await loggedInUser.save();
+        if (!updatedUser) {
+            const error = new Error('Error When Deleting Post From Logged User');
+            throw error;
+        }
+
 
         return {
             ...deletedPost._doc,
