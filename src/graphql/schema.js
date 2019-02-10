@@ -61,6 +61,7 @@ type RootQuery {
     login(email: String!, password: String!): AuthData!
     fetchPosts(page: Int!): PostListData!
     fetchSinglePost(postId: ID!): Post!
+    user: User!
 }`;
 
 const IRootMutation = `
@@ -69,6 +70,7 @@ type RootMutation {
     createPost(postInput: PostInputData!): Post!
     editPost(postId: ID!, postInput: PostInputData!): Post!
     deletePost(postId: ID!): Post!
+    editUserStatus(newStatus: String!): String!
 }`;
 
 module.exports = buildSchema(`

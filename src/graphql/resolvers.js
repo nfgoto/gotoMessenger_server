@@ -369,7 +369,70 @@ module.exports = {
             createdAt: deletedPost.createdAt.toISOString(),
             updatedAt: deletedPost.updatedAt.toISOString()
         };
-    }
+    },
+    editUserStatus: async ({ newStatus }, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
 
+        const errors = [];
+        if (validator.isEmpty(newStatus)) {
+            errors.push({ message: 'Status Cannot Be Emoty' });
+        }
+        if (!validator.isLength(newStatus, { min: 2 })) {
+            errors.push({ message: 'Status Is Too Short' });
+        }
+        if (errors.length > 0) {
+            const error = new Error('Status Validation Error');
+            error.code = 422;
+            throw error;
+        }
+
+        const loggedInUser = await User.findById(req.userId);
+        if (!loggedInUser) {
+            const error = new Error('Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        loggedInUser.status = newStatus;
+        try {
+            const updatedUser = await loggedInUser.save();
+            if (!updatedUser) {
+                const error = new Error('Error When Updating User Statust');
+                throw error;
+            }
+            return updatedUser.status;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    user: async (args, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        try {
+            const loggedInUser = await User.findById(req.userId);
+            if (!loggedInUser) {
+                const error = new Error('Not Authenticated');
+                error.code = 401;
+                throw error;
+            }
+            return {
+                ...loggedInUser._doc,
+                _id: loggedInUser._id.toString(),
+                createdAt: loggedInUser.createdAt.toISOString(),
+                updatedAt: loggedInUser.updatedAt.toISOString()
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
 
 };
