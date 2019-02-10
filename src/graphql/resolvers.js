@@ -197,8 +197,8 @@ module.exports = {
         const currentPage = page;
         const perPage = 2;
 
-        const totalPosts = await Post.find({ creator: req.userId }).countDocuments();
-        const posts = await Post.find({ creator: req.userId })
+        const totalPosts = await Post.find().countDocuments();
+        const posts = await Post.find()
             .sort({ createdAt: -1 })
             .skip((currentPage - 1) * perPage)
             .limit(perPage)
