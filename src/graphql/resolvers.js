@@ -175,12 +175,10 @@ module.exports = {
         }
 
         return {
-            post: {
-                ...createdPost._doc,
-                _id: createdPost._id,
-                createdAt: createdPost.createdAt.toISOString(),
-                updatedAt: createdPost.updatedAt.toISOString()
-            },
+            ...createdPost._doc,
+            _id: createdPost._id,
+            createdAt: createdPost.createdAt.toISOString(),
+            updatedAt: createdPost.updatedAt.toISOString(),
             creator: {
                 _id: updatedUser._id.toString(),
                 name: updatedUser.name
@@ -251,6 +249,74 @@ module.exports = {
             createdAt: loadedPost.createdAt.toISOString(),
             updatedAt: loadedPost.updatedAt.toISOString()
         };
+    },
+
+    editPost: async (args, req) => {
+        if (!req.isAuth) {
+            const error = new Error('Error Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        const { postId, postInput } = args;
+        const { title, content, imageUrl } = postInput;
+
+        const loadedPost = await Post.findById(postId).populate('creator');
+        if (!loadedPost) {
+            const error = new Error('Post Not Found');
+            error.code = 404;
+            throw error;
+        }
+
+        const loggedInUser = await User.findById(req.userId);
+        if (!loggedInUser) {
+            const error = new Error('Not Authenticated');
+            error.code = 401;
+            throw error;
+        }
+
+        if (loadedPost.creator._id.toString() !== req.userId) {
+            const error = new Error('Not Authorized');
+            error.code = 403;
+            throw error;
+        }
+
+        const errors = [];
+        if (validator.isEmpty(title) || !validator.isLength(title, { min: 5 })) {
+            errors.push({ message: 'Title Too Short' });
+        }
+        if (validator.isEmpty(content) || !validator.isLength(content, { min: 5 })) {
+            errors.push({ message: 'Content Too Short' });
+        }
+        if (validator.isEmpty(imageUrl)) {
+            errors.push({ message: 'Image URL is Empty' });
+        }
+        if (errors.length > 0) {
+            const error = new Error('Invalid Post Data');
+            error.data = errors;
+            throw error;
+        }
+
+        loadedPost.title = title;
+        loadedPost.content = content;
+        // imageUrl input arg "undefined" in mutation shen no image edit
+        if (imageUrl !== 'undefined') {
+            loadedPost.imageUrl = imageUrl;    
+        }
+
+        const updatedPost = await loadedPost.save();
+        if (!updatedPost) {
+            const error = new Error('Post Edit Error');
+            throw error;
+        }
+
+        return {
+            ...updatedPost._doc,
+            _id: updatedPost._id.toString(),
+            createdAt: updatedPost.createdAt.toISOString(),
+            updatedAt: updatedPost.updatedAt.toISOString()
+        };
+
     }
 
 };

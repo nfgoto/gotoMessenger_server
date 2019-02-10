@@ -44,13 +44,6 @@ type Creator {
     name: String!
 }`;
 
-const ICreatedPostData = `
-type CreatedPostData {
-    post: Post!
-    creator: Creator
-}
-`;
-
 const IAuthData = `
 type AuthData {
     token: String!
@@ -73,7 +66,8 @@ type RootQuery {
 const IRootMutation = `
 type RootMutation {
     createUser(userInput: UserInputData!): User!
-    createPost(postInput: PostInputData!): CreatedPostData!
+    createPost(postInput: PostInputData!): Post!
+    editPost(postId: ID!, postInput: PostInputData!): Post!
 }`;
 
 module.exports = buildSchema(`
@@ -82,7 +76,6 @@ module.exports = buildSchema(`
     ${IUserInputData}
     ${IAuthData}
     ${IPostInputData}
-    ${ICreatedPostData}
     ${ICreator}
     ${IPostListData}
     ${IRootQuery}    

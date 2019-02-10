@@ -51,17 +51,28 @@ app.put(
             error.statusCode = 401;
             throw error;
         }
-        
-        if (!req.file) {
-            return res.status(404).json({ message: 'No Image Provided' });
-        }
 
         if (req.body.oldPath) {
-            clearImage(req.body.oldPath, next);
-        }
+            if (!req.file) {
+                return res.status(200).json({ message: 'No New Image. Keeping The Old One' });
+            }
 
-        const filepath = req.file.path;
-        return res.status(201).json({message: 'Image Uploaded', filepath});
+            clearImage(
+                req.body.oldPath,
+                next,
+                () => {
+                    const filepath = req.file.path;
+                    return res.status(201).json({ message: 'Image Uploaded', filepath });
+                }
+            );
+        } else {
+            if (!req.file) {
+                return res.status(404).json({ message: 'No Image Provided' });
+            }
+
+            const filepath = req.file.path;
+            return res.status(201).json({ message: 'Image Uploaded', filepath });
+        }
     }
 );
 
